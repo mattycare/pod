@@ -1,0 +1,33 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body > div {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+div > div {
+    width: 10px;
+    height: 10px;
+}
+
+#palette {
+    background: #c2c2c2;
+    height: 50em;
+    width: 10em;
+    position: absolute;
+    right: 0;
+}
+
+.mouseColors {
+    float: left;
+    width: 40%;
+}
+
+input {
+    height: 30px;
+    width: 100px;
+    margin: auto;
+}
