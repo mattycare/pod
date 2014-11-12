@@ -55,6 +55,11 @@ var Draw = {
             Draw.mouseE = e;
             Draw.saveState();
         });
+        // document.addEventListener('keydown', function (e) {
+        //     if ((e.keyCode === 90 || e.which === 90) && e.ctrlKey) {
+        //         Draw.undoButtonPressed();
+        //     }
+        // });
     },
 
     attachListener: function (div) {
