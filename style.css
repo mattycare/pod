@@ -17,11 +17,11 @@ div > div {
     background: #c2c2c2;
     height: 20em;
     width: 10em;
-    position: absolute;
+    position: fixed;
     right: 0;
 }
 
-.mouseColors {
+.mouseColors, .zoom, .undoRedo {
     float: left;
     width: 40%;
 }
