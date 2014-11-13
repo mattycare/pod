@@ -1,6 +1,12 @@
 var Draw = {
-    masterDiv: document.getElementById('master'),
+    MAXMOUSESIZE: 1,
+    MINMOUSESIZE: 0,
+    MASTERDIV: document.getElementById('master'),
     currentBackground: null,
+    currentLeftBackground: null,
+    currentRightBackground: null,
+    currentTopBackground: null,
+    currentBottomBackground: null,
     isMouseDown: false,
     mouseE: null,
     windowHeight: null,
@@ -14,6 +20,7 @@ var Draw = {
     tempUndoArray: [],
     redoArray: [],
     redoCount: 0,
+    mouseSize: 0,
 
     loaded: function () {
         var i = 0,
@@ -25,15 +32,18 @@ var Draw = {
         document.body.style.width = Draw.windowWidth + 'px';
         for (i; i < Draw.totalPixels; i++) {
             div = document.createElement('div');
-            div.id = 'id' + i;
-            Draw.masterDiv.appendChild(div);
+            div.id = 'id' + (i + 1);
+            div.style.background = 'rgb(255,255,255)';
+            Draw.MASTERDIV.appendChild(div);
         }
+        Draw.leftMouseColor = document.getElementById('leftColor').value;
+        Draw.rightMouseColor = document.getElementById('rightColor').value;
         Draw.listeners();
         Draw.buttonListeners();
     },
 
     listeners: function () {
-        var thing = Draw.masterDiv.getElementsByTagName('div'),
+        var thing = Draw.MASTERDIV.getElementsByTagName('div'),
             div = null,
             i = 0;
         for (i; i < thing.length; i++) {
@@ -60,20 +70,74 @@ var Draw = {
         //         Draw.undoButtonPressed();
         //     }
         // });
+        // document.addEventListener('keydown', function (e) {
+        //     if (e.keyCode === 221 || e.which === 221) {
+        //         if (Draw.mouseSize < Draw.MAXMOUSESIZE) {
+        //             Draw.mouseSize += 1;
+        //         }
+        //     }
+        // });
     },
 
     attachListener: function (div) {
         div.addEventListener('mouseover', function () {
-            Draw.checkForAdd(div);
+            surroundingPixels = Draw.calculateSurrounding(div);
+            Draw.mouseOver(surroundingPixels);
         });
+
+        div.addEventListener('mouseout', function () {
+            surroundingPixels = Draw.calculateSurrounding(div);
+            Draw.mouseOut(surroundingPixels);
+        });
+
         div.addEventListener('mousedown', function (e) {
-            switch (e.which) {
-            case 1:
-                Draw.leftClick(div);
-                break;
-            case 3:
-                Draw.rightClick(div);
-                break;
+            surroundingPixels = Draw.calculateSurrounding(div);
+            mouseButton = e.which;
+            Draw.mouseDown(surroundingPixels, mouseButton);
+        });
+    },
+
+    buttonListeners: function () {
+        var list = document.getElementsByClassName('paletteButtons'),
+            length = list.length,
+            i = 0,
+            zoomOut = document.getElementById('zoomOut'),
+            zoomIn = document.getElementById('zoomIn'),
+            undo = document.getElementById('undo'),
+            redo = document.getElementById('redo'),
+            leftMouseColor = document.getElementById('leftColor'),
+            rightMouseColor = document.getElementById('rightColor'),
+            increase = document.getElementById('increaseMouse'),
+            decrease = document.getElementById('decreaseMouse');
+        for (i = 0, length; i < length; i++) {
+            Draw.attachButtonListeners(i);
+        }
+        zoomIn.addEventListener('click', function () {
+            Draw.zoom('in');
+        });
+        zoomOut.addEventListener('click', function () {
+            Draw.zoom('out');
+        });
+        undo.addEventListener('click', function () {
+            Draw.undoButtonPressed();
+        });
+        redo.addEventListener('click', function () {
+            Draw.redoButtonPressed();
+        });
+        leftMouseColor.addEventListener('change', function () {
+            Draw.leftMouseColor = leftMouseColor.value;
+        });
+        rightMouseColor.addEventListener('change', function () {
+            Draw.rightMouseColor = rightMouseColor.value;
+        });
+        increase.addEventListener('click', function () {
+            if (Draw.mouseSize < Draw.MAXMOUSESIZE) {
+                Draw.mouseSize += 1;
+            }
+        });
+        decrease.addEventListener('click', function () {
+            if (Draw.mouseSize > Draw.MINMOUSESIZE) {
+                Draw.mouseSize -= 1;
             }
         });
     },
@@ -93,31 +157,6 @@ var Draw = {
         }, false);
     },
 
-    buttonListeners: function () {
-        var list = document.getElementsByClassName('paletteButtons'),
-            length = list.length,
-            i = 0,
-            zoomOut = document.getElementById('zoomOut'),
-            zoomIn = document.getElementById('zoomIn'),
-            undo = document.getElementById('undo'),
-            redo = document.getElementById('redo');
-        for (i = 0, length; i < length; i++) {
-            Draw.attachButtonListeners(i);
-        }
-        zoomIn.addEventListener('click', function () {
-            Draw.zoom('in');
-        });
-        zoomOut.addEventListener('click', function () {
-            Draw.zoom('out');
-        });
-        undo.addEventListener('click', function () {
-            Draw.undoButtonPressed();
-        });
-        redo.addEventListener('click', function () {
-            Draw.redoButtonPressed();
-        });
-    },
-
     zoom: function (direction) {
         if (direction === 'in') {
             Draw.zoomValue += 50;
@@ -126,14 +165,14 @@ var Draw = {
             Draw.zoomValue -= 50;
         }
         //window.scrollTo(Number(document.body.style.width.replace('px', '')) * 0.5, Number(document.body.style.height.replace('px', '') * 0.5))
-        Draw.masterDiv.style.zoom = Draw.zoomValue + '%';
+        Draw.MASTERDIV.style.zoom = Draw.zoomValue + '%';
         document.body.style.width = Draw.windowWidth * Draw.zoomValue / 100 + 'px';
     },
 
     paletteButtonPressed: function (id, button) {
         var leftColor = document.getElementById('leftColor'),
             rightColor = document.getElementById('rightColor'),
-            thing = Draw.masterDiv.getElementsByTagName('div'),
+            thing = Draw.MASTERDIV.getElementsByTagName('div'),
             div = null,
             i = 0;
         if (id === 'Clear') {
@@ -153,25 +192,85 @@ var Draw = {
         }
     },
 
-    checkForAdd: function (div) {
-        Draw.currentBackground = div.style.background;
-        if (Draw.currentBackground === '') {
-            Draw.currentBackground = 'rgb(255,255,255)';
-        }
-        div.style.background = Draw.leftMouseColor;
-        div.addEventListener('mouseout', function () {
-            div.style.background = Draw.currentBackground;
-        });
+    mouseOver: function (pixels, mouseSize) {
+        Draw.currentBackground = pixels[4].style.background;
+        pixels[4].style.background = Draw.leftMouseColor;
 
-        Draw.leftMouseColor = document.getElementById('leftColor').value;
-        Draw.rightMouseColor = document.getElementById('rightColor').value;
-
-        if (Draw.isMouseDown) {
-            if (Draw.mouseE.which === 1) {
-                Draw.leftClick(div);
+        if (Draw.mouseSize === 1 ) {
+            Draw.currentLeftBackground = pixels[3].style.background;
+            Draw.currentRightBackground = pixels[1].style.background;
+            if (pixels[0] !== null) {
+                Draw.currentTopBackground = pixels[0].style.background;
             }
-            if (Draw.mouseE.which === 3) {
-                Draw.rightClick(div);
+            if (pixels[2] !== null) {
+                Draw.currentBottomBackground = pixels[2].style.background;
+            }
+
+            if (pixels[6]) {
+                pixels[3].style.background = Draw.leftMouseColor;  
+            }
+
+            if(pixels[7]) {
+                pixels[1].style.background = Draw.leftMouseColor;
+            }
+
+            if (pixels[0] !== null) {
+                pixels[0].style.background = Draw.leftMouseColor;
+            }
+            if (pixels[2] !== null) {
+                pixels[2].style.background = Draw.leftMouseColor;
+            }
+        }
+        if (Draw.mouseSize === 0) {
+            if (Draw.isMouseDown) {
+                if (mouseButton === 1) {
+                    Draw.mouseClicked(pixels[4], 'center', Draw.leftMouseColor);
+                }
+                if (mouseButton === 3) {
+                    Draw.mouseClicked(pixels[4], 'center', Draw.rightMouseColor);
+                }
+            }
+        }
+        if (Draw.mouseSize === 1) {
+            if (Draw.isMouseDown) {
+                if (mouseButton === 1) {
+                    if (pixels[6]) {
+                        Draw.mouseClicked(pixels[3], 'left', Draw.leftMouseColor);
+                    }
+                    if(pixels[7]) {
+                        Draw.mouseClicked(pixels[1], 'right', Draw.leftMouseColor);
+                    }
+                    Draw.mouseClicked(pixels[0], 'top', Draw.leftMouseColor);
+                    Draw.mouseClicked(pixels[2], 'bottom', Draw.leftMouseColor);
+                    Draw.mouseClicked(pixels[4], 'center', Draw.leftMouseColor);
+                }
+                if (mouseButton === 3) {
+                    if (pixels[6]) {
+                        Draw.mouseClicked(pixels[3], 'left', Draw.rightMouseColor);
+                    }
+                    if(pixels[7]) {
+                        Draw.mouseClicked(pixels[1], 'right', Draw.rightMouseColor);
+                    }
+                    Draw.mouseClicked(pixels[0], 'top', Draw.rightMouseColor);
+                    Draw.mouseClicked(pixels[2], 'bottom', Draw.rightMouseColor);
+                    Draw.mouseClicked(pixels[4], 'center', Draw.rightMouseColor);
+                }
+            }
+        }
+    },
+
+    mouseOut: function (pixels) {
+
+        pixels[4].style.background = Draw.currentBackground;
+        
+        if (Draw.mouseSize === 1 ) {
+            pixels[3].style.background = Draw.currentLeftBackground;
+            pixels[1].style.background = Draw.currentRightBackground;
+            if (pixels[0] !== null) {
+                pixels[0].style.background = Draw.currentTopBackground;
+            }
+            if (pixels[2] !== null) {
+                pixels[2].style.background = Draw.currentBottomBackground;
             }
         }
     },
@@ -239,20 +338,101 @@ var Draw = {
         }
     },
 
-    leftClick: function (div) {
-        if (Draw.rgbToHex(Draw.currentBackground) !== Draw.leftMouseColor) {
-            Draw.tempUndoArray.push([Draw.currentBackground, div, Draw.leftMouseColor]);
-        }
-        div.style.background = Draw.leftMouseColor;
-        Draw.currentBackground = Draw.leftMouseColor;
+    calculateSurrounding: function (div) {
+        var divsWide = Math.floor(Draw.windowWidth / 10),
+            divId = div.id,
+            divNumber = divId.replace('id', ''),
+            rowPosition = divNumber / divsWide,
+            topPixel = document.getElementById('id' + Math.round(((rowPosition - 1) * divsWide))),
+            rightPixel = document.getElementById('id' + (Number(divNumber) + 1)),
+            bottomPixel = document.getElementById('id' + Math.round(((rowPosition + 1) * divsWide))),
+            leftPixel = document.getElementById('id' + (Number(divNumber) - 1)),
+            centerPixel = div,
+            farthestLeft = Number(leftPixel.id.replace('id', '')) % divsWide !== 0,
+            farthestRight = Number(rightPixel.id.replace('id', '')) % divsWide !== 1;
+
+        return [topPixel, rightPixel, bottomPixel, leftPixel, centerPixel, divsWide, farthestLeft, farthestRight]
     },
 
-    rightClick: function (div) {
-        if (Draw.rgbToHex(Draw.currentBackground) !== Draw.rightMouseColor) {
-            Draw.tempUndoArray.push([Draw.currentBackground, div, Draw.rightMouseColor]);
+    mouseDown: function (pixels, mouseButton) {
+        // Draw.isMouseDown = true; do this instead of document event listener for button down
+        if (Draw.mouseSize === 0) {
+            switch (mouseButton) {
+            case 1:
+                Draw.mouseClicked(pixels[4], 'center', Draw.leftMouseColor);
+                break;
+            case 3:
+                Draw.mouseClicked(pixels[4], 'center', Draw.rightMouseColor);
+                break;
+            }
         }
-        div.style.background = Draw.rightMouseColor;
-        Draw.currentBackground = Draw.rightMouseColor;
+        if (Draw.mouseSize === 1) {
+            switch (mouseButton) {
+            case 1:
+                if (pixels[6]) {
+                    Draw.mouseClicked(pixels[3], 'left', Draw.leftMouseColor);
+                }
+                if (pixels[7]) {
+                    Draw.mouseClicked(pixels[1], 'right', Draw.leftMouseColor);
+                }
+                Draw.mouseClicked(pixels[0], 'top', Draw.leftMouseColor);
+                Draw.mouseClicked(pixels[2], 'bottom', Draw.leftMouseColor);
+                Draw.mouseClicked(pixels[4], 'center', Draw.leftMouseColor);
+                break;
+            case 3:
+                if (pixels[6]) {
+                    Draw.mouseClicked(pixels[3], 'left', Draw.rightMouseColor);
+                }
+                if (pixels[7]) {
+                    Draw.mouseClicked(pixels[1], 'right', Draw.rightMouseColor);
+                }
+                Draw.mouseClicked(pixels[0], 'top', Draw.rightMouseColor);
+                Draw.mouseClicked(pixels[2], 'bottom', Draw.rightMouseColor);
+                Draw.mouseClicked(pixels[4], 'center', Draw.rightMouseColor);
+                break;
+            }
+        }         
+    },
+
+    mouseClicked: function (div, location, mouseColor) {
+        if (div !== null) {
+            switch(location) {
+            case 'left':
+                if (Draw.rgbToHex(Draw.currentLeftBackground) !== mouseColor) {
+                    Draw.tempUndoArray.push([Draw.currentLeftBackground, div, mouseColor]);
+                }
+                Draw.currentLeftBackground = mouseColor;
+                break;
+
+            case 'right': 
+                if (Draw.rgbToHex(Draw.currentRightBackground) !== mouseColor) {
+                    Draw.tempUndoArray.push([Draw.currentRightBackground, div, mouseColor]);
+                }
+                Draw.currentRightBackground = mouseColor;
+                break;
+
+            case 'top':
+                if (Draw.rgbToHex(Draw.currentTopBackground) !== mouseColor) {
+                    Draw.tempUndoArray.push([Draw.currentTopBackground, div, mouseColor]);
+                }
+                Draw.currentTopBackground = mouseColor;
+                break;
+
+            case 'bottom':
+                if (Draw.rgbToHex(Draw.currentBottomBackground) !== mouseColor) {
+                    Draw.tempUndoArray.push([Draw.currentBottomBackground, div, mouseColor]);
+                }
+                Draw.currentBottomBackground = mouseColor;
+                break;
+
+            case 'center':
+                if (Draw.rgbToHex(Draw.currentBackground) !== mouseColor) {
+                    Draw.tempUndoArray.push([Draw.currentBackground, div, mouseColor]);
+                }
+                Draw.currentBackground = mouseColor;
+                break;
+            }
+        }
     }
 };
 
