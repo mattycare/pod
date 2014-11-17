@@ -63,7 +63,6 @@ var Draw = {
             e.preventDefault();
             Draw.isMouseDown = true;
             Draw.mouseButton = e.which;
-            console.log(Draw.mouseButton)
         });
         document.addEventListener('mouseup', function (e) {
             e.preventDefault();
@@ -101,10 +100,10 @@ var Draw = {
             Draw.mouseButton = e.which;
             Draw.mouseDown(surroundingPixels);
         });
-        div.addEventListener('mouseup', function () {
-            var surroundingPixels = Draw.calculateSurrounding(div);
-            //Draw.mouseUp(surroundingPixels);
-        });
+        // div.addEventListener('mouseup', function () {
+        //     var surroundingPixels = Draw.calculateSurrounding(div);
+        //     //Draw.mouseUp(surroundingPixels);
+        // });
     },
 
     buttonListeners: function () {
