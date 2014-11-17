@@ -142,6 +142,7 @@ var Draw = {
         });
         leftMouseColor.addEventListener('change', function () {
             Draw.leftMouseColor = leftMouseColor.value;
+            Draw.currentMouseColor = leftMouseColor.value;
         });
         rightMouseColor.addEventListener('change', function () {
             Draw.rightMouseColor = rightMouseColor.value;
